@@ -1,9 +1,16 @@
 local ADDON_NAME, _ = ...
 
+
+
+------------------------------------------------------------------------------------------------------------------------------------------
+--Change line 228 and 231 to noMouseAlpha = 0 in
+--C:\Program Files (x86)\World of Warcraft\_retail_\Interface\Addons\Chatter\Libs\LibChatAnims\LibChatAnims.lua
+------------------------------------------------------------------------------------------------------------------------------------------
+
 --constants
 local LOAD_ADDONS = {
 	"Chatter",
-	"WorldQuestTracer",
+	"WorldQuestTracker",
 	"Details",
 }
 local EVENT_FRAME = CreateFrame("frame", ADDON_NAME.."EventFrame", UIParent)
@@ -200,29 +207,26 @@ local INIT_STATE = {
 	}
 }
 
-
---locals
-UIHideTooltipIsActive = true
-UIHideHideBonusRolls = true
-local UIHideBonusRollFrameHidden = false
-
 --functions
-
 --util
 local deepUnion
 deepUnion = function(oldTable, overrideTable)
-	newTable = {}
+	if oldTable == nil or overrideTable == nil then
+		--forces error to appear here
+		A.B.C()
+	end
+	local newTable = {}
 	for k, v in pairs(overrideTable) do
 		if type(v) == "table" then
-			newTable[k] = deepUnion(oldTable[k], v)
+			newTable[k] = deepUnion(type(oldTable[k]) == "table" and oldTable[k] or {}, v)
 		else
 			newTable[k] = v
 		end
 	end
 	for k, v in pairs(oldTable) do
-		if not newTable[k] then
+		if newTable[k] == nil then
 			if type(v) == "table" then
-				newTable[k] = deepUnion({}}, v)
+				newTable[k] = deepUnion({}, v)
 			else
 				newTable[k] = v
 			end
@@ -231,7 +235,7 @@ deepUnion = function(oldTable, overrideTable)
 	return newTable
 end
 
---display affecting
+--show and hide frames, currState is passed through
 local function displayMapCluster(currState)
 	if currState.buffs.isManual or currState.buffs.showIfAuto then
 		BuffFrame:Show()
@@ -250,17 +254,14 @@ local function displayMapCluster(currState)
 	else
 		ObjectiveTrackerFrame:Hide()
 	end
+	
 	return currState
 end
 local function displayChat(currState)
 	if currState.chat.isManual or currState.chat.showIfAuto then
-		SELECTED_CHAT_FRAME.Show = SELECTED_CHAT_FRAME.ShowOld
-		GeneralDockManager.Show = GeneralDockManager.ShowOld
-		SELECTED_CHAT_FRAME:Show()
-		GeneralDockManager:Show()
+		SELECTED_CHAT_FRAME:ShowOld()
+		GeneralDockManager:ShowOld()
 	else
-		SELECTED_CHAT_FRAME.Show = SELECTED_CHAT_FRAME.ShowNew
-		GeneralDockManager.Show = GeneralDockManager.ShowNew
 		SELECTED_CHAT_FRAME:Hide()
 		GeneralDockManager:Hide()
 	end
@@ -268,20 +269,11 @@ local function displayChat(currState)
 end
 local function displayBonusRoll(currState)
 	if currState.bonusRoll.isManual or currState.bonusRoll.showIfAuto then
-		BonusRollFrame:Hide()
-		return deepUnion(currState, {
-			bonusRoll = {
-				isHidden = true
-			}
-		})
-	else
 		BonusRollFrame:Show()
-		return deepUnion(currState, {
-			bonusRoll = {
-				isHidden = false
-			}
-		})
+	else
+		BonusRollFrame:Hide()
 	end
+	return currState
 end
 local function displayToolTip(currState)
 	if not currState.tooltip.isManual then
@@ -319,17 +311,32 @@ local function toggleTooltip(currState)
 	}))
 end
 local function toggleBonusRoll(currState)
-	return deepUnion(currState, {
+	return displayBonusRoll(deepUnion(currState, {
 		bonusRoll = {
 			isManual = not currState.bonusRoll.isManual,
 		},
-	})
+	}))
+end
+local function toggleChat(currState)
+	local newState = not currState.chat.disableManualToggle
+					and {
+						chat = {
+							isManual = not currState.chat.isManual
+						},
+					}
+					or {}
+	return displayChat(deepUnion(currState, newState))
 end
 local function updateState(currState)
 	local instanceType, instanceDiff = select(2, GetInstanceInfo())
-	local newStateName =	(instanceType ~= "none" and "dungeon")
-						or	(GetNumQuestWatches() > 0 or GetNumWorldQuestWatches() > 0 or (WorldQuestTrackerQuestsHeader and WorldQuestTrackerQuestsHeader:IsShown()) and "questing")
-						or	("default")
+	local newStateName = ""
+	if instanceType ~= "none" then
+		newStateName = "dungeon"
+	elseif GetNumQuestWatches() > 0 or GetNumWorldQuestWatches() > 0 or (WorldQuestTrackerQuestsHeader and WorldQuestTrackerQuestsHeader:IsShown()) then
+		newStateName = "questing"
+	else
+		newStateName = "default"
+	end
 	return deepUnion(currState, BLANK_IS_AUTO_STATES[newStateName])
 end
 local function chatEventHandler(currState, self, event, ...)
@@ -360,13 +367,13 @@ local function chatEventHandler(currState, self, event, ...)
 				return deepUnion(currState, {
 					chat = {
 						disableManualToggle = false,
-					}.
+					},
 				})
 			end))
 			return displayChat(deepUnion(currState, {
 				chat = {
 					showIfAuto = false,
-					hideTime = false
+					hideTime = false,
 					disableManualToggle = true,
 				},
 			}))
@@ -389,6 +396,7 @@ do
 	local function getStateFunc(func)
 		return function(...)
 			gameState = func(gameState, ...)
+			UIHide.gameState = gameState	--PURELY FOR DEBUG PURPOSES
 		end
 	end
 
@@ -398,8 +406,8 @@ do
 		toggleTooltip = getStateFunc(toggleTooltip),
 		toggleChat = getStateFunc(toggleChat),
 		toggleBonusRoll = getStateFunc(toggleBonusRoll),
-		getStateFunc = getStateFunc, --NOT SURE IF THIS IS THE BEST SOLUTION
-		gameState = gameState, --PURELY FOR DEBUG PURPOSES
+		getStateFunc = getStateFunc,	--NOT SURE IF THIS IS THE BEST SOLUTION
+		gameState = gameState,	--PURELY FOR DEBUG PURPOSES
 		toggleDetails = function()
 			if not DetailsBaseFrame1 then
 				return
@@ -412,7 +420,6 @@ do
 				DetailsRowFrame1:Show()
 			end
 		end,
-		
 	}
 end
 
@@ -428,30 +435,25 @@ for i, loadAddonName in ipairs(LOAD_ADDONS) do
 end
 
 --modifies the chat frames so other stuff doesn't mess with them
-local function newChatShow(self, force)
-	if force then
+local function ShowNew(currState, self)
+	if currState.chat.isManual or currState.chat.showIfAuto then
 		self:ShowOld()
 	end
+	return currState
 end
 for i = 1, NUM_CHAT_WINDOWS, 1 do
 	if _G["ChatFrame"..i] then
 		local curr = _G["ChatFrame"..i]
 		curr.ShowOld = curr.Show
-		curr.ShowNew = curr.newChatShow
-		curr.Show = newChatShow
+		curr.Show = UIHide.getStateFunc(ShowNew)
 		_G["ChatFrame"..i.."Tab"].noMouseAlpha = 0
 	end
 end
 GeneralDockManager.ShowOld = GeneralDockManager.Show
-GeneralDockManager.ShowNew = newChatShow
-GeneralDockManager.Show = newChatShow
+GeneralDockManager.Show = UIHide.getStateFunc(ShowNew)
 FCF_StartAlertFlashOld = FCF_StartAlertFlash
 FCF_StartAlertFlash = function() end
 CHAT_FRAME_TAB_SELECTED_NOMOUSE_ALPHA = 0
-------------------------------------------------------------------------------------------------------------------------------------------
---Change line 228 and 231 to noMouseAlpha = 0 in
---C:\Program Files (x86)\World of Warcraft\_retail_\Interface\Addons\Chatter\Libs\LibChatAnims\LibChatAnims.lua
-------------------------------------------------------------------------------------------------------------------------------------------
 
 --chat frame automation
 for event, eventTable in pairs(CHAT_EVENTS) do
@@ -483,6 +485,7 @@ end
 --tooltip 
 GameTooltip:HookScript("OnShow", UIHide.getStateFunc(function(currState, self)
 	if currState.tooltip.isManual or (not InCombatLockdown() and IsShiftKeyDown()) or select(2, self:GetPoint()) ~= TooltipMover then
+		return currState
 	else
 		self:Hide()
 	end
@@ -511,9 +514,9 @@ BonusRollFrame:HookScript("OnShow", UIHide.getStateFunc(function(currState, self
 	end
 end))
 BonusRollFrame.IsShownOld = BonusRollFrame.IsShown
-BonusRollFrame.IsShown = function(self)
-	return BonusRollFrame:IsShownOld() or UIHideBonusRollFrameHidden
-end
+BonusRollFrame.IsShown = UIHide.getStateFunc(function(currState, self)
+	return BonusRollFrame:IsShownOld() or currState.bonusRoll.isHidden
+end)
 EVENT_FRAME:RegisterEvent("SPELL_CONFIRMATION_TIMEOUT")
 EVENT_FRAME:HookScript("OnEvent", UIHide.getStateFunc(function(currState, self, event, ...)
 	if event == "SPELL_CONFIRMATION_TIMEOUT" and select(2, ...) == LE_SPELL_CONFIRMATION_PROMPT_TYPE_BONUS_ROLL then
@@ -521,7 +524,7 @@ EVENT_FRAME:HookScript("OnEvent", UIHide.getStateFunc(function(currState, self, 
 			bonusRoll = {
 				isHidden = false,
 			},
-		}
+		})
 	else
 		return currState
 	end
@@ -537,9 +540,6 @@ end)()
 ------------------------------------------------------------------------------------------------------------------------------------------
 
 
-------------------------------------------------------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------------------------------------------------------
 --OTHER STUFF
 
