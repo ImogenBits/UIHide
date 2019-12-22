@@ -12,6 +12,7 @@ local LOAD_ADDONS = {
 	"Chatter",
 	"WorldQuestTracker",
 	"Details",
+	"MBB",
 }
 local EVENT_FRAME = CreateFrame("frame", ADDON_NAME.."EventFrame", UIParent)
 
