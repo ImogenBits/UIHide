@@ -27,7 +27,6 @@ local PSH_GROUP = true
 local PSH_GUILD = false
 local PSH_SYSTEM = false
 
-
 local WHISPER_EVENTS = {
 	["CHAT_MSG_BN_WHISPER"] = true,
 	["CHAT_MSG_WHISPER"] = true,
@@ -55,8 +54,7 @@ local SYSTEM_EVENTS = {
 	--["CHAT_MSG_SYSTEM"] = true,
 }
 local CHAT_EVENTS = {}
---populates CHAT_EVENTS as a union of the other chat events tables
-do
+do	--populates CHAT_EVENTS as a union of the other chat events tables
 	for event, eventTable in pairs(WHISPER_EVENTS) do
 		CHAT_EVENTS[event] = {TTH_WHISPER, PSH_WHISPER}
 	end
@@ -71,9 +69,86 @@ do
 	end
 end
 
+--Events when the mapCluster state will be updated
+local MAP_CLUSTER_STATE_EVENTS = {
+	["PLAYER_ENTERING_WORLD"] = true,
+	["QUEST_WATCH_LIST_CHANGED"] = true
+}
+
+--Deftault state info
+local MAP_CLUSTER_IF_AUTO_STATES = {
+	["default"] = {
+		name = "default",
+		buffs = {
+			showIfAuto = false,
+		},
+		map = {
+			showIfAuto = false,
+		},
+		quests = {
+			showIfAuto = false,
+		},
+	},
+	["dungeon"] = {
+		name = "dungeon",
+		buffs = {
+			showIfAuto = true,
+		},
+		map = {
+			showIfAuto = true,
+		},
+		quests = {
+			showIfAuto = false,
+		},
+	},
+	["questing"] = {
+		name = "questing",
+		buffs = {
+			showIfAuto = false,
+		},
+		map = {
+			showIfAuto = true,
+		},
+		quests = {
+			showIfAuto = true,
+		},
+	},
+}
+local INIT_STATE = {
+	mapCluster = {
+		name = "uninitialised",
+		buffs = {
+			isManual = false,
+			showIfAuto = false,
+		},
+		map = {
+			isManual = false,
+			showIfAuto = false,
+		},
+		quests = {
+			isManual = false,
+			showIfAuto = false,
+		},
+	},
+	chat = {
+		isManual = false,
+		showIfAuto = false,
+		privateMode = false,
+		hideTime = false,
+		disableManualToggle = false,
+	},
+	tooltip = {
+		isManual = false,
+	},
+	bonusRoll = {
+		isManual = false,
+		isHidden = false,
+	},
+}
+
 --filters that will be applied to all chat messages.  First return value will be added to tth, second will be or'ed to push and third will cause the function to return without any changes to the state or display
 local FILTERS = {
-	["name mention"] = function(currState, event, text, ...)
+	["name mention"] = function(chatState, event, text, ...)
 		local names = {
 			UnitName("player"):lower(),
 			"stagger",
@@ -87,7 +162,7 @@ local FILTERS = {
 			end
 		end
 	end,
-	["combat group filter"] = function(currState, event, ...)
+	["combat group filter"] = function(chatState, event, ...)
 		if GUILD_EVENTS[event] and InCombatLockdown() and IsInInstance() and not push then
 			return 0, false, true
 		end
@@ -97,261 +172,177 @@ local FILTERS = {
 			return 0, false, true
 		end
 	end,]]
-	["private mode"] = function(currState, event, text, ...)
-		if currState.chat.privateMode and GUILD_EVENTS[event] then
+	["private mode"] = function(chatState, event, text, ...)
+		if chatState.privateMode and GUILD_EVENTS[event] then
 			return 0, false, true
 		end
 	end,
-	["instance combat filter"] = function(currState, event, text, ...)
+	["instance combat filter"] = function(chatState, event, text, ...)
 		return 0, false
 	end
 }
 
-local STATE_EVENTS = {
-	["PLAYER_ENTERING_WORLD"] = true,
-	["QUEST_WATCH_LIST_CHANGED"] = true
-}
-
-local BLANK_IS_AUTO_STATES = {
-	["default"] = {
-		name = "default",
-		buffs = {
-			showIfAuto = false,
-		},
-		map = {
-			showIfAuto = false,
-		},
-		quests = {
-			showIfAuto = false,
-		},
-		chat = {
-			showIfAuto = false,
-		},
-		tooltip = {
-			showIfAuto = false,
-		},
-		bonusRoll = {
-			showIfAuto = false
-		}
-	},
-	["dungeon"] = {
-		name = "dungeon",
-		buffs = {
-			showIfAuto = true,
-		},
-		map = {
-			showIfAuto = true,
-		},
-		quests = {
-			showIfAuto = false,
-		},
-		chat = {
-			showIfAuto = false,
-		},
-		tooltip = {
-			showIfAuto = false,
-		},
-		bonusRoll = {
-			showIfAuto = false
-		}
-	},
-	["questing"] = {
-		name = "questing",
-		buffs = {
-			showIfAuto = false,
-		},
-		map = {
-			showIfAuto = true,
-		},
-		quests = {
-			showIfAuto = true,
-		},
-		chat = {
-			showIfAuto = false,
-		},
-		tooltip = {
-			showIfAuto = false,
-		},
-		bonusRoll = {
-			showIfAuto = false
-		}
-	},
-}
-local INIT_STATE = {
-	name = "uninitialised",
-	buffs = {
-		isManual = false,
-		showIfAuto = true,
-	},
-	map = {
-		isManual = false,
-		showIfAuto = true,
-	},
-	quests = {
-		isManual = false,
-		showIfAuto = true,
-	},
-	chat = {
-		isManual = false,
-		showIfAuto = true,
-		privateMode = false,
-		hideTime = false,
-		disableManualToggle = false,
-	},
-	tooltip = {
-		isManual = false,
-		showIfAuto = true,
-	},
-	bonusRoll = {
-		isManual = false,
-		isHidden = false,
-	}
-}
-
---functions
---util
-local deepUnion
-deepUnion = function(oldTable, overrideTable)
-	if oldTable == nil or overrideTable == nil then
-		--forces error to appear here
-		A.B.C()
-	end
-	local newTable = {}
-	for k, v in pairs(overrideTable) do
-		if type(v) == "table" then
-			newTable[k] = deepUnion(type(oldTable[k]) == "table" and oldTable[k] or {}, v)
+--functions that update the actual displayed UI to look like the state dictates
+local DISPLAY_FUNCS = {
+	mapCluster = function(mapClusterState)
+		if mapClusterState.buffs.isManual or mapClusterState.buffs.showIfAuto then
+			BuffFrame:Show()
 		else
-			newTable[k] = v
+			BuffFrame:Hide()
 		end
-	end
-	for k, v in pairs(oldTable) do
-		if newTable[k] == nil then
-			if type(v) == "table" then
-				newTable[k] = deepUnion({}, v)
-			else
-				newTable[k] = v
-			end
+
+		if mapClusterState.map.isManual or mapClusterState.map.showIfAuto then
+			MinimapCluster:Show()
+		else
+			MinimapCluster:Hide()
 		end
+
+		if mapClusterState.quests.isManual or mapClusterState.quests.showIfAuto then
+			ObjectiveTrackerFrame:Show()
+		else
+			ObjectiveTrackerFrame:Hide()
+		end
+	end,
+	chat = function(chatState)
+		if chatState.isManual or chatState.showIfAuto then
+			SELECTED_CHAT_FRAME:ShowOld()
+			GeneralDockManager:ShowOld()
+		else
+			SELECTED_CHAT_FRAME:Hide()
+			GeneralDockManager:Hide()
+		end
+	end,
+	tooltip = function(tooltipState)
+		if tooltipState.isManual or (not InCombatLockdown() and IsShiftKeyDown()) or GameTooltip:GetOwner() ~= UIParent then
+		else
+			GameTooltip:Hide()
+		end
+	end,
+	bonusRoll = function(bonusRollState)
+		if bonusRollState.isManual then
+			BonusRollFrame:Show()
+		else
+			BonusRollFrame:Hide()
+		end
+	end,
+}
+
+--local functions
+--util
+local copy
+copy = function(val)
+	if type(val) == "table" then
+		local newTable = {}
+		for k, v in pairs(val) do
+			newTable[k] = copy(v)
+		end
+		return newTable
+	else
+		return val
 	end
-	return newTable
+end
+local merge
+merge = function(data1, data2)
+	if data2 == nil then
+		return copy(data1)
+	elseif type(data1) == "table" and type(data2) == "table" then
+		local newTable = copy(data1)
+		for k, v in pairs(data2) do
+			newTable[k] = merge(data1[k], data2[k])
+		end
+		return newTable
+	else
+		return copy(data2)
+	end
 end
 
 --show and hide frames, currState is passed through
-local function displayMapCluster(currState)
-	if currState.buffs.isManual or currState.buffs.showIfAuto then
+--[[local function displayMapCluster(mapClusterState)
+	if mapClusterState.buffs.isManual or mapClusterState.buffs.showIfAuto then
 		BuffFrame:Show()
 	else
 		BuffFrame:Hide()
 	end
 
-	if currState.map.isManual or currState.map.showIfAuto then
+	if mapClusterState.map.isManual or mapClusterState.map.showIfAuto then
 		MinimapCluster:Show()
 	else
 		MinimapCluster:Hide()
 	end
 
-	if currState.quests.isManual or currState.quests.showIfAuto then
+	if mapClusterState.quests.isManual or mapClusterState.quests.showIfAuto then
 		ObjectiveTrackerFrame:Show()
 	else
 		ObjectiveTrackerFrame:Hide()
 	end
-	
-	return currState
 end
-local function displayChat(currState)
-	if currState.chat.isManual or currState.chat.showIfAuto then
+local function displayChat(chatState)
+	if chatState.isManual or chatState.showIfAuto then
 		SELECTED_CHAT_FRAME:ShowOld()
 		GeneralDockManager:ShowOld()
 	else
 		SELECTED_CHAT_FRAME:Hide()
 		GeneralDockManager:Hide()
 	end
-	return currState
 end
-local function displayBonusRoll(currState)
-	if currState.bonusRoll.isManual or currState.bonusRoll.showIfAuto then
+local function displayBonusRoll(bonusRollState)
+	if bonusRollState.isManual then
 		BonusRollFrame:Show()
 	else
 		BonusRollFrame:Hide()
 	end
-	return currState
 end
-local function displayToolTip(currState)
-	if not currState.tooltip.isManual then
+local function displayToolTip(tooltipState)
+	if tooltipState.isManual or (not InCombatLockdown() and IsShiftKeyDown()) or select(2, GameTooltip:GetPoint()) ~= TooltipMover then
+	else
 		GameTooltip:Hide()
 	end
-	return currState
+end]]
+
+--called from macros to be quasi keybindings
+local function toggleMapCluster(mapClusterState)
+	return {
+		buffs = {
+			isManual = not mapClusterState.buffs.isManual,
+		},
+		map = {
+			isManual = not mapClusterState.map.isManual,
+		},
+		quests = {
+			isManual = not mapClusterState.quests.isManual,
+		}
+	}
+end
+local function togglePrivateMode(chatState)
+	print("private mode is on: ", not chatState.privateMode)
+	return {privateMode = not chatState.privateMode}
+end
+local function toggleTooltip(tooltipState)
+	return {isManual = not tooltipState.isManual}
+end
+local function toggleBonusRoll(bonusRollState)
+	return {isManual = not bonusRollState.isManual}
+end
+local function toggleChat(chatState)
+	if not chatState.disableManualToggle then
+		return {isManual = not chatState.isManual}
+	end
 end
 
 --event handlers
-local function toggleMapCluster(currState)
-	return displayMapCluster(deepUnion(currState, {
-		buffs = {
-			isManual = not currState.buffs.isManual,
-		},
-		map = {
-			isManual = not currState.map.isManual,
-		},
-		quests = {
-			isManual = not currState.quests.isManual,
-		}
-	}))
-end
-local function togglePrivateMode(currState)
-	return deepUnion(currState, {
-		chat = {
-			privateMode = not currState.chat.privateMode
-		}
-	})
-end
-local function toggleTooltip(currState)
-	return displayToolTip(deepUnion(currState, {
-		tooltip = {
-			isManual = not currState.tooltip.isManual
-		}
-	}))
-end
-local function toggleBonusRoll(currState)
-	return displayBonusRoll(deepUnion(currState, {
-		bonusRoll = {
-			isManual = not currState.bonusRoll.isManual,
-		},
-	}))
-end
-local function toggleChat(currState)
-	local newState = not currState.chat.disableManualToggle
-					and {
-						chat = {
-							isManual = not currState.chat.isManual
-						},
-					}
-					or {}
-	return displayChat(deepUnion(currState, newState))
-end
-local function updateState(currState)
-	local instanceType, instanceDiff = select(2, GetInstanceInfo())
-	local newStateName = ""
-	if instanceType ~= "none" then
-		newStateName = "dungeon"
-	elseif GetNumQuestWatches() > 0 or GetNumWorldQuestWatches() > 0 or (WorldQuestTrackerQuestsHeader and WorldQuestTrackerQuestsHeader:IsShown()) then
-		newStateName = "questing"
-	else
-		newStateName = "default"
-	end
-	return deepUnion(currState, BLANK_IS_AUTO_STATES[newStateName])
-end
-local function chatEventHandler(currState, self, event, ...)
-	if not CHAT_EVENTS[event] or currState.chat.isManual then
-		return currState
+local function chatEventHandler(chatState, self, event, ...)
+	--ignores events that aren't related to this event handler
+	if not CHAT_EVENTS[event] or chatState.isManual then
+		return
 	end
 
 	local tth, push = unpack(CHAT_EVENTS[event])
 
 	--applies all filter functions
 	for desc, filter in pairs(FILTERS) do
-		local tthExtra, pushExtra, skip = filter(currState, event, ...)
+		local tthExtra, pushExtra, skip = filter(chatState, event, ...)
 		if skip then
-			return currState
+			return
 		end
 		tth, push = tth + (tthExtra or 0), push or pushExtra
 	end
@@ -362,53 +353,66 @@ local function chatEventHandler(currState, self, event, ...)
 	end
 
 	--creates callback to hide chat again
-	C_Timer.After(tth, UIHide.getStateFunc(function(currState)
-		if currState.chat.hideTime and currState.chat.hideTime <= GetTime() + 0.5 then
-			C_Timer.After(0.5, UIHide.getStateFunc(function(currState)
-				return deepUnion(currState, {
-					chat = {
-						disableManualToggle = false,
-					},
-				})
-			end))
-			return displayChat(deepUnion(currState, {
-				chat = {
-					showIfAuto = false,
-					hideTime = false,
-					disableManualToggle = true,
-				},
-			}))
+	C_Timer.After(tth, UIHide.getStateUpdateFunc(function(chatState)
+		if chatState.hideTime and chatState.hideTime <= GetTime() + 0.1 then
+			C_Timer.After(0.5, UIHide.getStateUpdateFunc(function(chatState)
+				return {disableManualToggle = false}
+			end, "chat"))
+			return {showIfAuto = false, hideTime = false, disableManualToggle = true}
 		end
-	end))
+	end, "chat"))
 
-	--actually shows chat
-	return displayChat(deepUnion(currState, {
-		chat = {
-			showIfAuto = true,
-			hideTime = GetTime() + tth,
-		},
-	}))
+	return {showIfAuto = true, hideTime = GetTime() + tth}
+end
+
+--api calls
+local function getCurrMapClusterIfAutoState()
+	local instanceType, instanceDiff = select(2, GetInstanceInfo())
+	local newStateName = ""
+	if instanceType ~= "none" then
+		newStateName = "dungeon"
+	elseif GetNumQuestWatches() > 0 or GetNumWorldQuestWatches() > 0 or (WorldQuestTrackerQuestsHeader and WorldQuestTrackerQuestsHeader:IsShown()) then
+		newStateName = "questing"
+	else
+		newStateName = "default"
+	end
+	return MAP_CLUSTER_IF_AUTO_STATES[newStateName]
 end
 
 
 --UIHide object, only thing with access to gameState info
 do
-	local gameState = deepUnion(INIT_STATE, {})
-	local function getStateFunc(func)
+	local gameState = copy(INIT_STATE) --Aasdasdagas
+
+	local function getStateUpdateFunc(func, stateKey)
 		return function(...)
-			gameState = func(gameState, ...)
-			UIHide.gameState = gameState	--PURELY FOR DEBUG PURPOSES
+			local currState = gameState[stateKey]
+			local newState = func(currState, ...)
+			if newState then
+				gameState[stateKey] = merge(currState, newState)
+				DISPLAY_FUNCS[stateKey](gameState[stateKey])
+			end
+		end
+	end
+	local function getStateFunc(func, stateKey)
+		return function(...)
+			func(gameState[stateKey], ...)
 		end
 	end
 
 	UIHide = {
-		toggleMapCluster = getStateFunc(toggleMapCluster),
-		togglePrivateMode = getStateFunc(togglePrivateMode),
-		toggleTooltip = getStateFunc(toggleTooltip),
-		toggleChat = getStateFunc(toggleChat),
-		toggleBonusRoll = getStateFunc(toggleBonusRoll),
-		getStateFunc = getStateFunc,	--NOT SURE IF THIS IS THE BEST SOLUTION
-		gameState = gameState,	--PURELY FOR DEBUG PURPOSES
+		--called from macros to be essentially keybindings
+		toggleMapCluster = getStateUpdateFunc(toggleMapCluster, "mapCluster"),
+		togglePrivateMode = getStateUpdateFunc(togglePrivateMode, "chat"),
+		toggleTooltip = getStateUpdateFunc(toggleTooltip, "tooltip"),
+		toggleChat = getStateUpdateFunc(toggleChat, "chat"),
+		toggleBonusRoll = getStateUpdateFunc(toggleBonusRoll, "bonusRoll"),
+
+		getStateUpdateFunc = getStateUpdateFunc,
+		getStateFunc = getStateFunc,
+
+		gameState = gameState,	--DEBUG
+		merge = merge,			--DEBUG
 		toggleDetails = function()
 			if not DetailsBaseFrame1 then
 				return
@@ -436,22 +440,21 @@ for i, loadAddonName in ipairs(LOAD_ADDONS) do
 end
 
 --modifies the chat frames so other stuff doesn't mess with them
-local function ShowNew(currState, self)
-	if currState.chat.isManual or currState.chat.showIfAuto then
+local function ShowNew(chatState, self)
+	if chatState.isManual or chatState.showIfAuto then
 		self:ShowOld()
 	end
-	return currState
 end
 for i = 1, NUM_CHAT_WINDOWS, 1 do
 	if _G["ChatFrame"..i] then
 		local curr = _G["ChatFrame"..i]
 		curr.ShowOld = curr.Show
-		curr.Show = UIHide.getStateFunc(ShowNew)
+		curr.Show = UIHide.getStateFunc(ShowNew, "chat")
 		_G["ChatFrame"..i.."Tab"].noMouseAlpha = 0
 	end
 end
 GeneralDockManager.ShowOld = GeneralDockManager.Show
-GeneralDockManager.Show = UIHide.getStateFunc(ShowNew)
+GeneralDockManager.Show = UIHide.getStateFunc(ShowNew, "chat")
 FCF_StartAlertFlashOld = FCF_StartAlertFlash
 FCF_StartAlertFlash = function() end
 CHAT_FRAME_TAB_SELECTED_NOMOUSE_ALPHA = 0
@@ -460,84 +463,64 @@ CHAT_FRAME_TAB_SELECTED_NOMOUSE_ALPHA = 0
 for event, eventTable in pairs(CHAT_EVENTS) do
 	EVENT_FRAME:RegisterEvent(event)
 end
-EVENT_FRAME:HookScript("OnEvent", UIHide.getStateFunc(chatEventHandler))
+EVENT_FRAME:HookScript("OnEvent", UIHide.getStateUpdateFunc(chatEventHandler, "chat"))
+--enables private mode while in dungeons
+EVENT_FRAME:RegisterEvent("PLAYER_ENTERING_WORLD")
+EVENT_FRAME:RegisterEvent("CHALLENGE_MODE_START")
+EVENT_FRAME:RegisterEvent("CHALLENGE_MODE_COMPLETED")
+EVENT_FRAME:HookScript("OnEvent", UIHide.getStateUpdateFunc(function(chatState, self, event, ...)
+	if event == "PLAYER_ENTERING_WORLD" or event == "CHALLENGE_MODE_START" or event == "CHALLENGE_MODE_COMPLETED" then
+		return {privateMode = C_MythicPlus.IsMythicPlusActive()}
+	end
+end, "chat"))
 
 --minimap, buff and quest frame automations
-for event, _ in pairs(STATE_EVENTS) do
+for event, _ in pairs(MAP_CLUSTER_STATE_EVENTS) do
 	EVENT_FRAME:RegisterEvent(event)
 end
-EVENT_FRAME:HookScript("OnEvent", UIHide.getStateFunc(function(currState, self, event, ...)
-	if STATE_EVENTS[event] then
-		return displayMapCluster(updateState(currState))
-	else
-		return currState
+EVENT_FRAME:HookScript("OnEvent", UIHide.getStateUpdateFunc(function(mapClusterState, self, event, ...)
+	if MAP_CLUSTER_STATE_EVENTS[event] then
+		return getCurrMapClusterIfAutoState()
 	end
-end))
+end, "mapCluster"))
 
 if WorldQuestTrackerQuestsHeader then
-	WorldQuestTrackerQuestsHeader:HookScript("OnShow", UIHide.getStateFunc(function(currState)
-		return displayMapCluster(updateState(currState))
-	end))
-	WorldQuestTrackerQuestsHeader:HookScript("OnHide", UIHide.getStateFunc(function(currState)
-		return displayMapCluster(updateState(currState))
-	end))
+	WorldQuestTrackerQuestsHeader:HookScript("OnShow", UIHide.getStateUpdateFunc(function(mapClusterState)
+		return getCurrMapClusterIfAutoState()
+	end, "mapCluster"))
+	WorldQuestTrackerQuestsHeader:HookScript("OnHide", UIHide.getStateUpdateFunc(function(mapClusterState)
+		return getCurrMapClusterIfAutoState()
+	end, "mapCluster"))
 end
 
 --tooltip 
-GameTooltip:HookScript("OnShow", UIHide.getStateFunc(function(currState, self)
-	if currState.tooltip.isManual or (not InCombatLockdown() and IsShiftKeyDown()) or select(2, self:GetPoint()) ~= TooltipMover then
-		return currState
-	else
-		self:Hide()
-	end
-	return currState
-end))
+GameTooltip:HookScript("OnShow", UIHide.getStateUpdateFunc(function() return {} end, "tooltip"))
 EVENT_FRAME:RegisterEvent("MODIFIER_STATE_CHANGED")
-EVENT_FRAME:HookScript("OnEvent", function(self, event, ...)	--intentionally not a function of the state
-	if event == "MODIFIER_STATE_CHANGED" and (... == "LSHIFT" or ... == "RSHIFT") then
-		if select(2, ...) == 1 then
-			GameTooltip:Show()
-		else
-			GameTooltip:Hide()
-		end
-	end
-end)
+EVENT_FRAME:HookScript("OnEvent", UIHide.getStateUpdateFunc(function() return {} end, "tooltip"))
 
---BonusRoll
-BonusRollFrame:HookScript("OnShow", UIHide.getStateFunc(function(currState, self, event, ...)
-	if not currState.bonusRoll.isManual then
-		self:Hide()
-		return deepUnion(currState, {
-			bonusRoll = {
-				isHidden = true,
-			},
-		})
+--bonusRoll
+BonusRollFrame:HookScript("OnShow", UIHide.getStateUpdateFunc(function(bonusRollState, self, event, ...)
+	if not bonusRollState.isManual then
+		return {isHidden = true}
 	end
-end))
+end, "bonusRoll"))
 BonusRollFrame.IsShownOld = BonusRollFrame.IsShown
-BonusRollFrame.IsShown = UIHide.getStateFunc(function(currState, self)
-	return BonusRollFrame:IsShownOld() or currState.bonusRoll.isHidden
+BonusRollFrame.IsShown = UIHide.getStateFunc(function(bonusRollState, self)
+	return BonusRollFrame:IsShownOld() or bonusRollState.isHidden
 end)
 EVENT_FRAME:RegisterEvent("SPELL_CONFIRMATION_TIMEOUT")
-EVENT_FRAME:HookScript("OnEvent", UIHide.getStateFunc(function(currState, self, event, ...)
+EVENT_FRAME:HookScript("OnEvent", UIHide.getStateUpdateFunc(function(bonusRollState, self, event, ...)
 	if event == "SPELL_CONFIRMATION_TIMEOUT" and select(2, ...) == LE_SPELL_CONFIRMATION_PROMPT_TYPE_BONUS_ROLL then
-		return deepUnion(currState, {
-			bonusRoll = {
-				isHidden = false,
-			},
-		})
-	else
-		return currState
+		return {isHidden = false}
 	end
-end))
+end, "bonusRoll"))
 
 ------------------------------------------------------------------------------------------------------------------------------------------
---THIS MIGHT BE SUPER WRONG
 --initialization stuff
 UIHide.toggleDetails()
-UIHide.getStateFunc(function(currState)
-	return displayChat(displayMapCluster(updateState(currState)))
-end)()
+
+UIHide.getStateUpdateFunc(getCurrMapClusterIfAutoState, "mapCluster")()
+UIHide.getStateUpdateFunc(function() return {} end, "chat")()
 ------------------------------------------------------------------------------------------------------------------------------------------
 
 
