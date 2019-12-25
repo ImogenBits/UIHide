@@ -147,7 +147,8 @@ local INIT_STATE = {
 }
 
 --filters that will be applied to all chat messages.  First return value will be added to tth, second will be or'ed to push and third will cause the function to return without any changes to the state or display
-local FILTERS = {
+local FILTERS 
+FILTERS = {
 	["name mention"] = function(chatState, event, text, ...)
 		local names = {
 			UnitName("player"):lower(),
@@ -174,11 +175,23 @@ local FILTERS = {
 	end,]]
 	["private mode"] = function(chatState, event, text, ...)
 		if chatState.privateMode and GUILD_EVENTS[event] then
-			return 0, false, true
+			local _, isMention = FILTERS["name mention"](chatState, event, text, ...)
+			return 0, false, not isMention
 		end
 	end,
 	["instance combat filter"] = function(chatState, event, text, ...)
-		return 0, false
+		if GROUP_EVENTS[event] and InCombatLockdown() and IsInInstance() then
+			local textLower = text:lower()
+			if textLower:find("interrupt") or textLower:find("kick") or textLower:find("stun") or textLower:find("^%d+$") then
+				return 0, false, true
+			else
+				local spellString, spellText = text:match("|Hspell:(.+)|h%[(.-)%]") --text:match("|Hspell:(%d*)|h%[(.-)%]|h")
+    			local spellID = spellString and spellString:match("^(%d*)") or nil
+				if spellID and spellText and GetSpellInfo(spellID) ~= spellText then
+					return 0, false, true
+				end
+			end
+		end
 	end
 }
 
@@ -355,7 +368,7 @@ local function chatEventHandler(chatState, self, event, ...)
 	--creates callback to hide chat again
 	C_Timer.After(tth, UIHide.getStateUpdateFunc(function(chatState)
 		if chatState.hideTime and chatState.hideTime <= GetTime() + 0.1 then
-			C_Timer.After(0.5, UIHide.getStateUpdateFunc(function(chatState)
+			C_Timer.After(0.25, UIHide.getStateUpdateFunc(function(chatState)
 				return {disableManualToggle = false}
 			end, "chat"))
 			return {showIfAuto = false, hideTime = false, disableManualToggle = true}
