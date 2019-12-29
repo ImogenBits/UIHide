@@ -226,8 +226,7 @@ local DISPLAY_FUNCS = {
 		end
 	end,
 	tooltip = function(tooltipState)
-		if tooltipState.isManual or (not InCombatLockdown() and IsShiftKeyDown()) or GameTooltip:GetOwner() ~= UIParent then
-		else
+		if not tooltipState.isManual and (InCombatLockdown() or not IsShiftKeyDown()) and (GameTooltip:GetOwner() == UIParent or GameTooltip:GetUnit()) then
 			GameTooltip:Hide()
 		end
 	end,
