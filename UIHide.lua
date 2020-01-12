@@ -337,7 +337,11 @@ local function toggleBonusRoll(bonusRollState)
 end
 local function toggleChat(chatState)
 	if not chatState.disableManualToggle then
-		return {isManual = not chatState.isManual}
+		if chatState.showIfAuto then
+			return {showIfAuto = false, hideTime = false}
+		else
+			return {isManual = not chatState.isManual}
+		end
 	end
 end
 
@@ -383,7 +387,10 @@ local function getCurrMapClusterIfAutoState()
 	local newStateName = ""
 	if instanceType ~= "none" then
 		newStateName = "dungeon"
-	elseif GetNumQuestWatches() > 0 or GetNumWorldQuestWatches() > 0 or (WorldQuestTrackerQuestsHeader and WorldQuestTrackerQuestsHeader:IsShown()) then
+	elseif GetNumQuestWatches() > 0
+		or GetNumWorldQuestWatches() > 0
+		or GetNumTrackedAchievements() > 0
+		or (WorldQuestTrackerQuestsHeader and WorldQuestTrackerQuestsHeader:IsShown()) then
 		newStateName = "questing"
 	else
 		newStateName = "default"
@@ -482,7 +489,7 @@ EVENT_FRAME:RegisterEvent("CHALLENGE_MODE_START")
 EVENT_FRAME:RegisterEvent("CHALLENGE_MODE_COMPLETED")
 EVENT_FRAME:HookScript("OnEvent", UIHide.getStateUpdateFunc(function(chatState, self, event, ...)
 	if event == "PLAYER_ENTERING_WORLD" or event == "CHALLENGE_MODE_START" or event == "CHALLENGE_MODE_COMPLETED" then
-		return {privateMode = C_MythicPlus.IsMythicPlusActive()}
+		return {privateMode = IsInInstance() and C_ChallengeMode.IsChallengeModeActive()}
 	end
 end, "chat"))
 
