@@ -134,6 +134,7 @@ local INIT_STATE = {
 		isManual = false,
 		showIfAuto = false,
 		privateMode = false,
+		privateModeAuto = true,
 		hideTime = false,
 		disableManualToggle = false,
 	},
@@ -174,7 +175,7 @@ FILTERS = {
 		end
 	end,]]
 	["private mode"] = function(chatState, event, text, ...)
-		if chatState.privateMode and GUILD_EVENTS[event] then
+		if (chatState.privateMode or chatState.privateModeAuto) and GUILD_EVENTS[event] then
 			local _, isMention = FILTERS["name mention"](chatState, event, text, ...)
 			return 0, false, not isMention
 		end
@@ -326,7 +327,7 @@ local function toggleMapCluster(mapClusterState)
 	}
 end
 local function togglePrivateMode(chatState)
-	print("private mode is on: ", not chatState.privateMode)
+	print("private mode is: ", not chatState.privateMode and "on" or "off")
 	return {privateMode = not chatState.privateMode}
 end
 local function toggleTooltip(tooltipState)
@@ -489,7 +490,7 @@ EVENT_FRAME:RegisterEvent("CHALLENGE_MODE_START")
 EVENT_FRAME:RegisterEvent("CHALLENGE_MODE_COMPLETED")
 EVENT_FRAME:HookScript("OnEvent", UIHide.getStateUpdateFunc(function(chatState, self, event, ...)
 	if event == "PLAYER_ENTERING_WORLD" or event == "CHALLENGE_MODE_START" or event == "CHALLENGE_MODE_COMPLETED" then
-		return {privateMode = IsInInstance() and C_ChallengeMode.IsChallengeModeActive()}
+		return {privateModeAuto = IsInInstance() and C_ChallengeMode.IsChallengeModeActive()}
 	end
 end, "chat"))
 
@@ -526,7 +527,7 @@ end, "bonusRoll"))
 BonusRollFrame.IsShownOld = BonusRollFrame.IsShown
 BonusRollFrame.IsShown = UIHide.getStateFunc(function(bonusRollState, self)
 	return BonusRollFrame:IsShownOld() or bonusRollState.isHidden
-end)
+end, "bonusRoll")
 EVENT_FRAME:RegisterEvent("SPELL_CONFIRMATION_TIMEOUT")
 EVENT_FRAME:HookScript("OnEvent", UIHide.getStateUpdateFunc(function(bonusRollState, self, event, ...)
 	if event == "SPELL_CONFIRMATION_TIMEOUT" and select(2, ...) == LE_SPELL_CONFIRMATION_PROMPT_TYPE_BONUS_ROLL then
