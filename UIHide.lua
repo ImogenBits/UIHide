@@ -416,7 +416,7 @@ do
 	end
 	local function getStateFunc(func, stateKey)
 		return function(...)
-			func(gameState[stateKey], ...)
+			return func(gameState[stateKey], ...)
 		end
 	end
 
