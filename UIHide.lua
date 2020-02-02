@@ -15,7 +15,10 @@ local LOAD_ADDONS = {
 	"MBB",
 }
 local EVENT_FRAME = CreateFrame("frame", ADDON_NAME.."EventFrame", UIParent)
-
+local BUFF_FRAME_POS = {
+	default = {-205, -13},
+	corner = {-13, -13},
+}
 --helper constants for the chat events
 local TTH_WHISPER = 3
 local TTH_GROUP = 3
@@ -95,7 +98,7 @@ local MAP_CLUSTER_IF_AUTO_STATES = {
 			showIfAuto = true,
 		},
 		map = {
-			showIfAuto = true,
+			showIfAuto = false,
 		},
 		quests = {
 			showIfAuto = false,
@@ -199,16 +202,17 @@ FILTERS = {
 --functions that update the actual displayed UI to look like the state dictates
 local DISPLAY_FUNCS = {
 	mapCluster = function(mapClusterState)
-		if mapClusterState.buffs.isManual or mapClusterState.buffs.showIfAuto then
-			BuffFrame:Show()
-		else
-			BuffFrame:Hide()
-		end
-
 		if mapClusterState.map.isManual or mapClusterState.map.showIfAuto then
 			MinimapCluster:Show()
 		else
 			MinimapCluster:Hide()
+		end
+		
+		if mapClusterState.buffs.isManual or mapClusterState.buffs.showIfAuto then
+			BuffFrame:Show()
+			BuffFrame:SetPoint("TOPRIGHT", unpack(BUFF_FRAME_POS[MinimapCluster:IsShown() and "default" or "corner"]))
+		else
+			BuffFrame:Hide()
 		end
 
 		if mapClusterState.quests.isManual or mapClusterState.quests.showIfAuto then
@@ -268,49 +272,6 @@ merge = function(data1, data2)
 		return copy(data2)
 	end
 end
-
---show and hide frames, currState is passed through
---[[local function displayMapCluster(mapClusterState)
-	if mapClusterState.buffs.isManual or mapClusterState.buffs.showIfAuto then
-		BuffFrame:Show()
-	else
-		BuffFrame:Hide()
-	end
-
-	if mapClusterState.map.isManual or mapClusterState.map.showIfAuto then
-		MinimapCluster:Show()
-	else
-		MinimapCluster:Hide()
-	end
-
-	if mapClusterState.quests.isManual or mapClusterState.quests.showIfAuto then
-		ObjectiveTrackerFrame:Show()
-	else
-		ObjectiveTrackerFrame:Hide()
-	end
-end
-local function displayChat(chatState)
-	if chatState.isManual or chatState.showIfAuto then
-		SELECTED_CHAT_FRAME:ShowOld()
-		GeneralDockManager:ShowOld()
-	else
-		SELECTED_CHAT_FRAME:Hide()
-		GeneralDockManager:Hide()
-	end
-end
-local function displayBonusRoll(bonusRollState)
-	if bonusRollState.isManual then
-		BonusRollFrame:Show()
-	else
-		BonusRollFrame:Hide()
-	end
-end
-local function displayToolTip(tooltipState)
-	if tooltipState.isManual or (not InCombatLockdown() and IsShiftKeyDown()) or select(2, GameTooltip:GetPoint()) ~= TooltipMover then
-	else
-		GameTooltip:Hide()
-	end
-end]]
 
 --called from macros to be quasi keybindings
 local function toggleMapCluster(mapClusterState)
@@ -559,3 +520,4 @@ end
 if MBB_OnUpdate then
 	MBB_OnUpdate(2.99999)
 end
+
