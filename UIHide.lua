@@ -167,8 +167,8 @@ FILTERS = {
 			end
 		end
 	end,
-	["combat group filter"] = function(chatState, event, ...)
-		if GUILD_EVENTS[event] and InCombatLockdown() and IsInInstance() and not push then
+	["guild msg in instance filter"] = function(chatState, event, ...)
+		if GUILD_EVENTS[event] and ((InCombatLockdown() and IsInInstance()) or C_ChallengeMode.IsChallengeModeActive()) then
 			return 0, false, true
 		end
 	end,
@@ -179,8 +179,7 @@ FILTERS = {
 	end,]]
 	["private mode"] = function(chatState, event, text, ...)
 		if (chatState.privateMode or chatState.privateModeAuto) and GUILD_EVENTS[event] then
-			local _, isMention = FILTERS["name mention"](chatState, event, text, ...)
-			return 0, false, not isMention
+			return 0, false, true
 		end
 	end,
 	["instance combat filter"] = function(chatState, event, text, ...)
@@ -315,16 +314,18 @@ local function chatEventHandler(chatState, self, event, ...)
 	end
 
 	local tth, push = unpack(CHAT_EVENTS[event])
+	local skip = false
 
 	--applies all filter functions
 	for desc, filter in pairs(FILTERS) do
-		local tthExtra, pushExtra, skip = filter(chatState, event, ...)
-		if skip then
-			return
-		end
-		tth, push = tth + (tthExtra or 0), push or pushExtra
+		local tthExtra, pushExtra, skipExtra = filter(chatState, event, ...)
+		tth, push, skip = tth + (tthExtra or 0), push or pushExtra, skip or skipExtra
 	end
 
+	if skip and not push then
+		return
+	end
+	
 	--makes the Windows WoW icon blink
 	if push then
 		FlashClientIcon()
