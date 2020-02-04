@@ -157,7 +157,6 @@ FILTERS = {
 		local names = {
 			UnitName("player"):lower(),
 			"stagger",
-			"tank",
 			"imogen",
 			"immy"
 		}
@@ -522,3 +521,5 @@ if MBB_OnUpdate then
 	MBB_OnUpdate(2.99999)
 end
 
+--EJ shows +15 level rewards instead of baseline mythic
+C_EncounterJournal.SetPreviewMythicPlusLevel(15)
