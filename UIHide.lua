@@ -177,18 +177,20 @@ FILTERS = {
 		end
 	end,
 	["instance combat filter"] = function(chatState, isMention, event, text, ...)
-		if GROUP_EVENTS[event] then--and IsInInstance() then
+		if GROUP_EVENTS[event] and IsInInstance() then
 			local textLower = text:lower()
 			if textLower:find("^%d+$") then
 				return 0, false, true
 			end
 			if InCombatLockdown() then
-				if textLower:find("interrupt") or textLower:find("kick") or textLower:find("stun") then
-					return 0, false, true
-				else
-					local spellString, spellText = text:match("|Hspell:(.+)|h%[(.-)%]")
-					local spellID = spellString and spellString:match("^(%d*)") or nil
-					if spellID and spellText and GetSpellInfo(spellID) ~= spellText then
+				local patterns = {
+					"interrupt",
+					"kick",
+					"stun",
+					"|Hspell:.+|h%[.-%]",
+				}
+				for i, pattern in ipairs(patterns) do
+					if textLower:find(pattern) then
 						return 0, false, true
 					end
 				end
