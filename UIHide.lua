@@ -153,7 +153,7 @@ local INIT_STATE = {
 --filters that will be applied to all chat messages.  First return value will be added to tth, second will be or'ed to push and third will cause the function to return without any changes to the state or display
 local FILTERS 
 FILTERS = {
-	["name mention"] = function(chatState, event, text, ...)
+	["mention"] = function(chatState, isMention, event, text, ...)
 		local names = {
 			UnitName("player"):lower(),
 			"stagger",
@@ -166,31 +166,31 @@ FILTERS = {
 			end
 		end
 	end,
-	["guild msg in instance filter"] = function(chatState, event, ...)
-		if GUILD_EVENTS[event] and ((InCombatLockdown() and IsInInstance()) or C_ChallengeMode.IsChallengeModeActive()) then
+	["guild msg in instance filter"] = function(chatState, isMention, event, ...)
+		if GUILD_EVENTS[event] and not isMention and ((InCombatLockdown() and IsInInstance()) or C_ChallengeMode.IsChallengeModeActive()) then
 			return 0, false, true
 		end
 	end,
-	--[[	["online/offline/away message"] = function(currState, eventTable, event, text, ...)
-		if event == "CHAT_MSG_SYSTEM" and (text:find("has come online") or text:find("has gone offline")) or text:find("Away") then
-			return 0, false, true
-		end
-	end,]]
-	["private mode"] = function(chatState, event, text, ...)
-		if (chatState.privateMode or chatState.privateModeAuto) and GUILD_EVENTS[event] then
+	["private mode"] = function(chatState, isMention, event, text, ...)
+		if (chatState.privateMode or chatState.privateModeAuto) and GUILD_EVENTS[event] and not isMention then
 			return 0, false, true
 		end
 	end,
-	["instance combat filter"] = function(chatState, event, text, ...)
-		if GROUP_EVENTS[event] and InCombatLockdown() and IsInInstance() then
+	["instance combat filter"] = function(chatState, isMention, event, text, ...)
+		if GROUP_EVENTS[event] then--and IsInInstance() then
 			local textLower = text:lower()
-			if textLower:find("interrupt") or textLower:find("kick") or textLower:find("stun") or textLower:find("^%d+$") then
+			if textLower:find("^%d+$") then
 				return 0, false, true
-			else
-				local spellString, spellText = text:match("|Hspell:(.+)|h%[(.-)%]") --text:match("|Hspell:(%d*)|h%[(.-)%]|h")
-    			local spellID = spellString and spellString:match("^(%d*)") or nil
-				if spellID and spellText and GetSpellInfo(spellID) ~= spellText then
+			end
+			if InCombatLockdown() then
+				if textLower:find("interrupt") or textLower:find("kick") or textLower:find("stun") then
 					return 0, false, true
+				else
+					local spellString, spellText = text:match("|Hspell:(.+)|h%[(.-)%]")
+					local spellID = spellString and spellString:match("^(%d*)") or nil
+					if spellID and spellText and GetSpellInfo(spellID) ~= spellText then
+						return 0, false, true
+					end
 				end
 			end
 		end
@@ -312,20 +312,19 @@ local function chatEventHandler(chatState, self, event, ...)
 		return
 	end
 
-	local tth, push = unpack(CHAT_EVENTS[event])
-	local skip = false
-
 	--applies all filter functions
+	local isMention = select(2, FILTERS.mention(chatState, false, event, ...))
+	local skip, tth, push = false, unpack(CHAT_EVENTS[event])
+
 	for desc, filter in pairs(FILTERS) do
-		local tthExtra, pushExtra, skipExtra = filter(chatState, event, ...)
+		local tthExtra, pushExtra, skipExtra = filter(chatState, isMention, event, ...)
 		tth, push, skip = tth + (tthExtra or 0), push or pushExtra, skip or skipExtra
 	end
 
-	if skip and not push then
+	if skip then
 		return
 	end
 	
-	--makes the Windows WoW icon blink
 	if push then
 		FlashClientIcon()
 	end
