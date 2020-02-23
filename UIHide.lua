@@ -54,7 +54,7 @@ local SYSTEM_EVENTS = {
 	["CHAT_MSG_WHISPER_INFORM"] = true,
 	["CHAT_MSG_BN_WHISPER_INFORM"] = true,
 	["CHAT_MSG_IGNORED"] = true,
-	--["CHAT_MSG_SYSTEM"] = true,
+	["CHAT_MSG_SYSTEM"] = true,
 }
 local CHAT_EVENTS = {}
 do	--populates CHAT_EVENTS as a union of the other chat events tables
@@ -524,3 +524,7 @@ end
 
 --EJ shows +15 level rewards instead of baseline mythic
 C_EncounterJournal.SetPreviewMythicPlusLevel(15)
+
+--Completing World Quests wont show alert
+WorldQuestCompleteAlertSystem.alwaysReplace = false
+WorldQuestCompleteAlertSystem.maxAlerts = 0
