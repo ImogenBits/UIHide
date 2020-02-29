@@ -54,7 +54,7 @@ local SYSTEM_EVENTS = {
 	["CHAT_MSG_WHISPER_INFORM"] = true,
 	["CHAT_MSG_BN_WHISPER_INFORM"] = true,
 	["CHAT_MSG_IGNORED"] = true,
-	["CHAT_MSG_SYSTEM"] = true,
+	--["CHAT_MSG_SYSTEM"] = true,
 }
 local CHAT_EVENTS = {}
 do	--populates CHAT_EVENTS as a union of the other chat events tables
@@ -196,7 +196,26 @@ FILTERS = {
 				end
 			end
 		end
-	end
+	end,
+	["system filter"] = function(chatState, isMention, event, text,...)
+		if SYSTEM_EVENTS[event] then
+			local textLower = text:lower()
+			local patterns = {
+				"gains [%d,%.]+ artifact power",
+				"you receive item:",
+				"you are now away",
+				"you are no longer away",
+				"quest accepted",
+				"received %d+",
+				" completed."
+			}
+			for i, pattern in ipairs(patterns) do
+				if textLower:find(pattern) then
+					return 0, false, true
+				end
+			end
+		end
+	end,
 }
 
 --functions that update the actual displayed UI to look like the state dictates
@@ -528,3 +547,14 @@ C_EncounterJournal.SetPreviewMythicPlusLevel(15)
 --Completing World Quests wont show alert
 WorldQuestCompleteAlertSystem.alwaysReplace = false
 WorldQuestCompleteAlertSystem.maxAlerts = 0
+
+--Moves dungeon progress frame out of the way of debuffs
+EVENT_FRAME:RegisterEvent("UNIT_AURA")
+EVENT_FRAME:HookScript("OnEvent", function(self, event, ...)
+	if event == "UNIT_AURA" then
+		local mapXPos = select(2, MinimapCluster:GetSize())
+		if BuffFrame:IsShown() and BuffFrame.bottomEdgeExtent > mapXPos + 20 then
+			ObjectiveTrackerFrame:SetPoint("TOPRIGHT", MinimapCluster, "BOTTOMRIGHT", -12, -(BuffFrame.bottomEdgeExtent - mapXPos + 5))
+		end
+	end
+end)
