@@ -12,7 +12,7 @@ local LOAD_ADDONS = {
 	"Chatter",
 	"WorldQuestTracker",
 	"Details",
-	"MBB",
+	"MBB",	
 }
 local EVENT_FRAME = CreateFrame("frame", ADDON_NAME.."EventFrame", UIParent)
 local BUFF_FRAME_POS = {
@@ -541,8 +541,101 @@ if MBB_OnUpdate then
 	MBB_OnUpdate(2.99999)
 end
 
---EJ shows +15 level rewards instead of baseline mythic
+--EJ can now display higher m+ level rewards and defaults to +15
+do
+	local previewMythicPlusLevel = 0
+	C_EncounterJournal.SetPreviewMythicPlusLevelOld = C_EncounterJournal.SetPreviewMythicPlusLevel
+	function C_EncounterJournal.SetPreviewMythicPlusLevel(level)
+		previewMythicPlusLevel = level
+		C_EncounterJournal.SetPreviewMythicPlusLevelOld(level)
+	end
+	function C_EncounterJournal.GetPreviewMythicPlusLevel()
+		return previewMythicPlusLevel
+	end
+end
 C_EncounterJournal.SetPreviewMythicPlusLevel(15)
+
+local MYTHIC_PLUS_DIFFICULTIES = {2, 4, 5, 7, 8, 11, 14}
+function EncounterJournal_DifficultyInit_New(self, level)
+	--copied from AddOns/Blizzard_EncounterJournal/BlizzardEncounterJournal.lua line 2422-2437 version 8.3
+	do
+		local EJ_DIFFICULTIES =	{
+			{ size = "5", prefix = PLAYER_DIFFICULTY1, difficultyID = 1 },
+			{ size = "5", prefix = PLAYER_DIFFICULTY2, difficultyID = 2 },
+			{ size = "5", prefix = PLAYER_DIFFICULTY6, difficultyID = 23 },
+			{ size = "5", prefix = PLAYER_DIFFICULTY_TIMEWALKER, difficultyID = 24 },
+			{ size = "25", prefix = PLAYER_DIFFICULTY3, difficultyID = 7 },
+			{ size = "10", prefix = PLAYER_DIFFICULTY1, difficultyID = 3 },
+			{ size = "10", prefix = PLAYER_DIFFICULTY2, difficultyID = 5 },
+			{ size = "25", prefix = PLAYER_DIFFICULTY1, difficultyID = 4 },
+			{ size = "25", prefix = PLAYER_DIFFICULTY2, difficultyID = 6 },
+			{ prefix = PLAYER_DIFFICULTY3, difficultyID = 17 },
+			{ prefix = PLAYER_DIFFICULTY1, difficultyID = 14 },
+			{ prefix = PLAYER_DIFFICULTY2, difficultyID = 15 },
+			{ prefix = PLAYER_DIFFICULTY6, difficultyID = 16 },
+			{ prefix = PLAYER_DIFFICULTY_TIMEWALKER, difficultyID = 33 },
+		}
+		local currDifficulty = EJ_GetDifficulty();
+		local info = UIDropDownMenu_CreateInfo();
+		for i=1,#EJ_DIFFICULTIES do
+			local entry = EJ_DIFFICULTIES[i];
+			if EJ_IsValidInstanceDifficulty(entry.difficultyID) then
+				info.func = EncounterJournal_SelectDifficulty;
+				if (entry.size) then
+					info.text = string.format(ENCOUNTER_JOURNAL_DIFF_TEXT, entry.size, entry.prefix);
+				else
+					info.text = entry.prefix;
+				end
+				info.arg1 = entry.difficultyID;
+				info.checked = currDifficulty == entry.difficultyID
+				
+				--modification
+				if entry.difficultyID == 23 then
+					info.checked = currDifficulty == 23 and C_EncounterJournal.GetPreviewMythicPlusLevel() == 0
+					info.func = function(self, menuLevel)
+						EncounterJournal_SelectDifficulty(self, menuLevel)
+						C_EncounterJournal.SetPreviewMythicPlusLevel(0)
+					end
+				end
+				--------------
+
+				UIDropDownMenu_AddButton(info);
+			end
+		end
+	end
+	-------------------------------------------------------------------------------------------------------
+
+	if EJ_IsValidInstanceDifficulty(23) then
+		local currDiff = EJ_GetDifficulty()
+		local info = UIDropDownMenu_CreateInfo()
+		for i = 1, #MYTHIC_PLUS_DIFFICULTIES do
+			local lvl = MYTHIC_PLUS_DIFFICULTIES[i]
+			local endLvl = MYTHIC_PLUS_DIFFICULTIES[i + 1]
+			endLvl = endLvl and endLvl - 1 or nil
+			info.func = function(self, lvl)
+					EJ_SetDifficulty(23)
+					C_EncounterJournal.SetPreviewMythicPlusLevel(lvl)
+				end
+			local displayString = "Mythic %d - %d"
+			if not endLvl then
+				displayString = "Mythic %d+"
+			elseif endLvl == lvl then
+				displayString = "Mythic %d"
+			end
+			info.text = string.format(displayString, lvl, endLvl)
+			info.arg1 = lvl
+			local previewLvl = C_EncounterJournal.GetPreviewMythicPlusLevel()
+			info.checked = currDiff == 23 and (lvl <= previewLvl and previewLvl <= (endLvl or math.huge))
+			UIDropDownMenu_AddButton(info)
+		end
+	end
+end
+EVENT_FRAME:RegisterEvent("ADDON_LOADED")
+EVENT_FRAME:HookScript("OnEvent", function(self, event, ...)
+	if event == "ADDON_LOADED" and ... == "Blizzard_EncounterJournal" then
+		UIDropDownMenu_Initialize(EncounterJournalEncounterFrameInfoDifficultyDD, EncounterJournal_DifficultyInit_New, "MENU")
+	end
+end)
 
 --Completing World Quests wont show alert
 WorldQuestCompleteAlertSystem.alwaysReplace = false
@@ -558,3 +651,5 @@ EVENT_FRAME:HookScript("OnEvent", function(self, event, ...)
 		end
 	end
 end)
+
+--Makes the Chat Editbox expand when typing long messages
