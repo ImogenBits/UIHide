@@ -12,7 +12,8 @@ local LOAD_ADDONS = {
 	"Chatter",
 	"WorldQuestTracker",
 	"Details",
-	"MBB",	
+	"MBB",
+	"SexyMap"
 }
 local EVENT_FRAME = CreateFrame("frame", ADDON_NAME.."EventFrame", UIParent)
 local BUFF_FRAME_POS = {
@@ -223,8 +224,10 @@ local DISPLAY_FUNCS = {
 	mapCluster = function(mapClusterState)
 		if mapClusterState.map.isManual or mapClusterState.map.showIfAuto then
 			MinimapCluster:Show()
+			Minimap:Show()
 		else
 			MinimapCluster:Hide()
+			Minimap:Hide()
 		end
 		
 		if mapClusterState.buffs.isManual or mapClusterState.buffs.showIfAuto then
@@ -539,6 +542,9 @@ end
 --MBB updates once every 3 seconds while it's shown, this makes it update ASAP after it's shown
 if MBB_OnUpdate then
 	MBB_OnUpdate(2.99999)
+	if IsAddOnLoaded("SexyMap") then
+		MBB_SetButtonPosition = function() end
+	end
 end
 
 --EJ can now display higher m+ level rewards and defaults to +15
@@ -562,14 +568,14 @@ do
 	local MYTHIC_PLUS_DIFFICULTIES = {2, 4, 5, 7, 8, 11, 14}
 	local function getMythicPlusDifficultyString(level)
 		local i = 1
-		while (MYTHIC_PLUS_DIFFICULTIES[i + 1] or math.huge) <= level do
+		while MYTHIC_PLUS_DIFFICULTIES[i + 1] and MYTHIC_PLUS_DIFFICULTIES[i + 1] <= level do
 			i = i + 1
 		end
-		local baselevel, endLvl = MYTHIC_PLUS_DIFFICULTIES[i], MYTHIC_PLUS_DIFFICULTIES[i + 1]
+		local baselevel, endLvl = MYTHIC_PLUS_DIFFICULTIES[i], MYTHIC_PLUS_DIFFICULTIES[i + 1] and MYTHIC_PLUS_DIFFICULTIES[i + 1] - 1
 		local displayString = "Mythic %d - %d"
 		if not endLvl then
 			displayString = "Mythic %d+"
-		elseif endLvl == lvl then
+		elseif baselevel == endLvl then
 			displayString = "Mythic %d"
 		end
 		return displayString:format(baselevel, endLvl)
