@@ -529,26 +529,29 @@ UIHide.getStateUpdateFunc(function() return {} end, "chat")()
 
 
 ------------------------------------------------------------------------------------------------------------------------------------------
---OTHER STUFF
+--* OTHER STUFF
 
---Ban Lu voicelines
-MuteSoundFile(1593212)
-MuteSoundFile(1593213)
-MuteSoundFile(1593236)
-for i = 1593216, 1593229, 1 do
-	MuteSoundFile(i)
-end
-
---MBB updates once every 3 seconds while it's shown, this makes it update ASAP after it's shown
-if MBB_OnUpdate then
-	MBB_OnUpdate(2.99999)
-	if IsAddOnLoaded("SexyMap") then
-		MBB_SetButtonPosition = function() end
+--* Ban Lu voicelines
+do
+	MuteSoundFile(1593212)
+	MuteSoundFile(1593213)
+	MuteSoundFile(1593236)
+	for i = 1593216, 1593229, 1 do
+		MuteSoundFile(i)
 	end
 end
 
---EJ can now display higher m+ level rewards and defaults to +15
---EJ doesn't show items that can't drop from m+ and cosmetic items when a m+ difficulty is selected
+--* MBB updates once every 3 seconds while it's shown, this makes it update ASAP after it's shown
+do
+	if MBB_OnUpdate then
+		MBB_OnUpdate(2.99999)
+		if IsAddOnLoaded("SexyMap") then
+			MBB_SetButtonPosition = function() end
+		end
+	end
+end
+
+--* EJ can now display higher m+ level rewards and defaults to +15 and doesn't show items that can't drop from m+ and cosmetic items when a m+ difficulty is selected
 do
 	do
 		local previewMythicPlusLevel = 0
@@ -747,20 +750,38 @@ do
 	end)
 end
 
---Completing World Quests wont show alert
-WorldQuestCompleteAlertSystem.alwaysReplace = false
-WorldQuestCompleteAlertSystem.maxAlerts = 0
+--* Completing World Quests wont show alert
+do
+	WorldQuestCompleteAlertSystem.alwaysReplace = false
+	WorldQuestCompleteAlertSystem.maxAlerts = 0
+end
 
---Moves dungeon progress frame out of the way of debuffs
-EVENT_FRAME:RegisterEvent("UNIT_AURA")
-EVENT_FRAME:HookScript("OnEvent", function(self, event, ...)
-	if event == "UNIT_AURA" then
-		local mapXPos = select(2, MinimapCluster:GetSize())
-		if BuffFrame:IsShown() and BuffFrame.bottomEdgeExtent > mapXPos + 20 then
-			ObjectiveTrackerFrame:SetPoint("TOPRIGHT", MinimapCluster, "BOTTOMRIGHT", -12, -(BuffFrame.bottomEdgeExtent - mapXPos + 5))
+--* Moves dungeon progress frame out of the way of debuffs
+do
+	EVENT_FRAME:RegisterEvent("UNIT_AURA")
+	EVENT_FRAME:HookScript("OnEvent", function(self, event, ...)
+		if event == "UNIT_AURA" then
+			local mapXPos = select(2, MinimapCluster:GetSize())
+			if BuffFrame:IsShown() and BuffFrame.bottomEdgeExtent > mapXPos + 20 then
+				ObjectiveTrackerFrame:SetPoint("TOPRIGHT", MinimapCluster, "BOTTOMRIGHT", -12, -(BuffFrame.bottomEdgeExtent - mapXPos + 5))
+			end
 		end
-	end
-end)
+	end)
+end
 
---Makes the Chat Editbox expand when typing long messages
+-- TODO: Makes the Chat Editbox expand when typing long messages
+do
 
+end
+
+--* Opens the Talent pane when you open the spec frame
+do
+	EVENT_FRAME:RegisterEvent("ADDON_LOADED")
+	EVENT_FRAME:HookScript("OnEvent", function(self, event, ...)
+		if event == "ADDON_LOADED" and ... == "Blizzard_TalentUI" then
+			PlayerTalentFrame:HookScript("OnShow", function(self)
+				PlayerTalentFrame_Open()
+			end)
+		end
+	end)
+end
