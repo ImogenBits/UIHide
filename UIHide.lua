@@ -13,7 +13,8 @@ local LOAD_ADDONS = {
 	"WorldQuestTracker",
 	"Details",
 	"MBB",
-	"SexyMap"
+	"SexyMap",
+	"Blizzard_DebugTools"
 }
 local EVENT_FRAME = CreateFrame("frame", ADDON_NAME.."EventFrame", UIParent)
 local BUFF_FRAME_POS = {
@@ -25,11 +26,13 @@ local TTH_WHISPER = 3
 local TTH_GROUP = 3
 local TTH_GUILD = 3
 local TTH_SYSTEM = 1
+local TTH_CUSTOM = 3
 
 local PSH_WHISPER = true
 local PSH_GROUP = true
 local PSH_GUILD = false
 local PSH_SYSTEM = false
+local PSH_CUSTOM = false
 
 local WHISPER_EVENTS = {
 	["CHAT_MSG_BN_WHISPER"] = true,
@@ -57,6 +60,9 @@ local SYSTEM_EVENTS = {
 	["CHAT_MSG_IGNORED"] = true,
 	--["CHAT_MSG_SYSTEM"] = true,
 }
+local CUSTOM_EVENTS = {
+	["CUSTOM_CHAT_MSG_DUMP"] = true,
+}
 local CHAT_EVENTS = {}
 do	--populates CHAT_EVENTS as a union of the other chat events tables
 	for event, eventTable in pairs(WHISPER_EVENTS) do
@@ -70,6 +76,9 @@ do	--populates CHAT_EVENTS as a union of the other chat events tables
 	end
 	for event, eventTable in pairs(SYSTEM_EVENTS) do
 		CHAT_EVENTS[event] = {TTH_SYSTEM, PSH_SYSTEM}
+	end
+	for event, eventTable in pairs(CUSTOM_EVENTS) do
+		CHAT_EVENTS[event] = {TTH_CUSTOM, PSH_CUSTOM}
 	end
 end
 
@@ -152,72 +161,74 @@ local INIT_STATE = {
 }
 
 --filters that will be applied to all chat messages.  First return value will be added to tth, second will be or'ed to push and third will cause the function to return without any changes to the state or display
-local FILTERS 
-FILTERS = {
-	["mention"] = function(chatState, isMention, event, text, ...)
-		local names = {
-			UnitName("player"):lower(),
-			"stagger",
-			"imogen",
-			"immy"
-		}
-		for i, name in pairs(names) do
-			if text:lower():find(name) then
-				return 0, true
+local FILTERS
+do
+	local playerNames = {
+		UnitName("player"):lower(),
+		"stagger",
+		"imogen",
+		"immy"
+	}
+	local systemPatterns = {
+		"gains [%d,%.]+ artifact power",
+		"you receive item:",
+		"you are now away",
+		"you are no longer away",
+		"quest accepted",
+		"received %d+",
+		" completed."
+	}
+	local combatPatterns = {
+		"interrupt",
+		"kick",
+		"stun",
+		"|Hspell:.+|h%[.-%]",
+	}
+	FILTERS = {
+		["mention"] = function(chatState, isMention, event, text, ...)
+			for i, name in pairs(playerNames) do
+				if text and text:lower():find(name) then
+					return 0, true
+				end
 			end
-		end
-	end,
-	["guild msg in instance filter"] = function(chatState, isMention, event, ...)
-		if GUILD_EVENTS[event] and not isMention and ((InCombatLockdown() and IsInInstance()) or C_ChallengeMode.IsChallengeModeActive()) then
-			return 0, false, true
-		end
-	end,
-	["private mode"] = function(chatState, isMention, event, text, ...)
-		if (chatState.privateMode or chatState.privateModeAuto) and GUILD_EVENTS[event] and not isMention then
-			return 0, false, true
-		end
-	end,
-	["instance combat filter"] = function(chatState, isMention, event, text, ...)
-		if GROUP_EVENTS[event] and IsInInstance() then
-			local textLower = text:lower()
-			if textLower:find("^%d+$") then
+		end,
+		["guild msg in instance filter"] = function(chatState, isMention, event, ...)
+			if GUILD_EVENTS[event] and not isMention and ((InCombatLockdown() and IsInInstance()) or C_ChallengeMode.IsChallengeModeActive()) then
 				return 0, false, true
 			end
-			if InCombatLockdown() then
-				local patterns = {
-					"interrupt",
-					"kick",
-					"stun",
-					"|Hspell:.+|h%[.-%]",
-				}
-				for i, pattern in ipairs(patterns) do
+		end,
+		["private mode"] = function(chatState, isMention, event, text, ...)
+			if (chatState.privateMode or chatState.privateModeAuto) and GUILD_EVENTS[event] and not isMention then
+				return 0, false, true
+			end
+		end,
+		["instance combat filter"] = function(chatState, isMention, event, text, ...)
+			if GROUP_EVENTS[event] and IsInInstance() and text then
+				local textLower = text:lower()
+				if textLower:find("^%d+$") then
+					return 0, false, true
+				end
+				if InCombatLockdown() then
+					for i, pattern in ipairs(combatPatterns) do
+						if textLower:find(pattern) then
+							return 0, false, true
+						end
+					end
+				end
+			end
+		end,
+		["system filter"] = function(chatState, isMention, event, text,...)
+			if SYSTEM_EVENTS[event] and text then
+				local textLower = text:lower()
+				for i, pattern in ipairs(systemPatterns) do
 					if textLower:find(pattern) then
 						return 0, false, true
 					end
 				end
 			end
-		end
-	end,
-	["system filter"] = function(chatState, isMention, event, text,...)
-		if SYSTEM_EVENTS[event] then
-			local textLower = text:lower()
-			local patterns = {
-				"gains [%d,%.]+ artifact power",
-				"you receive item:",
-				"you are now away",
-				"you are no longer away",
-				"quest accepted",
-				"received %d+",
-				" completed."
-			}
-			for i, pattern in ipairs(patterns) do
-				if textLower:find(pattern) then
-					return 0, false, true
-				end
-			end
-		end
-	end,
-}
+		end,
+	}
+end
 
 --functions that update the actual displayed UI to look like the state dictates
 local DISPLAY_FUNCS = {
@@ -386,7 +397,7 @@ end
 
 --UIHide object, only thing with access to gameState info
 do
-	local gameState = copy(INIT_STATE) --Aasdasdagas
+	local gameState = copy(INIT_STATE) --! YIKES
 
 	local function getStateUpdateFunc(func, stateKey)
 		return function(...)
@@ -415,8 +426,8 @@ do
 		getStateUpdateFunc = getStateUpdateFunc,
 		getStateFunc = getStateFunc,
 
-		gameState = gameState,	--DEBUG
-		merge = merge,			--DEBUG
+		gameState = gameState,	--! DEBUG
+		merge = merge,			--! DEBUG
 		toggleDetails = function()
 			if not DetailsBaseFrame1 then
 				return
@@ -465,7 +476,9 @@ CHAT_FRAME_TAB_SELECTED_NOMOUSE_ALPHA = 0
 
 --chat frame automation
 for event, eventTable in pairs(CHAT_EVENTS) do
-	EVENT_FRAME:RegisterEvent(event)
+	if not CUSTOM_EVENTS[event] then
+		EVENT_FRAME:RegisterEvent(event)
+	end
 end
 EVENT_FRAME:HookScript("OnEvent", UIHide.getStateUpdateFunc(chatEventHandler, "chat"))
 --enables private mode while in dungeons
@@ -784,4 +797,11 @@ do
 			end)
 		end
 	end)
+end
+
+--* /dump shows chat
+do
+	hooksecurefunc("DevTools_DumpCommand", UIHide.getStateUpdateFunc(function(chatState, msg, Editbox)
+		return chatEventHandler(chatState, Editbox, "CUSTOM_CHAT_MSG_DUMP", "")
+	end, "chat"))
 end
