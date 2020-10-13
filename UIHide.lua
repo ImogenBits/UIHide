@@ -534,7 +534,7 @@ end, "bonusRoll"))
 
 ------------------------------------------------------------------------------------------------------------------------------------------
 --initialization stuff
-UIHide.toggleDetails()
+--UIHide.toggleDetails()
 
 UIHide.getStateUpdateFunc(getCurrMapClusterIfAutoState, "mapCluster")()
 UIHide.getStateUpdateFunc(function() return {} end, "chat")()
