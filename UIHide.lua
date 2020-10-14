@@ -383,8 +383,8 @@ local function getCurrMapClusterIfAutoState()
 	local newStateName = ""
 	if instanceType ~= "none" then
 		newStateName = "dungeon"
-	elseif GetNumQuestWatches() > 0
-		or GetNumWorldQuestWatches() > 0
+	elseif C_QuestLog.GetNumQuestWatches() > 0
+		or C_QuestLog.GetNumWorldQuestWatches() > 0
 		or GetNumTrackedAchievements() > 0
 		or (WorldQuestTrackerQuestsHeader and WorldQuestTrackerQuestsHeader:IsShown()) then
 		newStateName = "questing"

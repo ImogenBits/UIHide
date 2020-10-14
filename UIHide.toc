@@ -1,1 +1,8 @@
+## Interface: 90001
+
+## Title: UIHide
+## Author: Imogen Bits
+
+## OptionalDeps: "Chatter",	"WorldQuestTracker", "Details", "MBB", "SexyMap", "Blizzard_DebugTools"
+
 UIHide.lua
