@@ -1,8 +1,8 @@
 ## Interface: 90001
-
-## Title: UIHide
+## Title: UI Hide
+## Notes: Hides various UI elements.
 ## Author: Imogen Bits
 
-## OptionalDeps: "Chatter",	"WorldQuestTracker", "Details", "MBB", "SexyMap", "Blizzard_DebugTools"
+## OptionalDeps: Chatter, WorldQuestTracker, MBB, SexyMap, Blizzard_DebugTools
 
 UIHide.lua
