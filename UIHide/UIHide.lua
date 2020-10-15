@@ -289,10 +289,10 @@ end
 local function set(tbl)
 	local setTbl = {}
 	for k, v in pairs(tbl) do
-		if v == true then
-			setTbl[k] = true
-		elseif type(k) == "number" then
+		if type(k) == "number" then
 			setTbl[v] = true
+		else
+			setTbl[k] = true
 		end
 	end
 	return setTbl
@@ -353,9 +353,9 @@ local function chatEventHandler(chatState, self, event, ...)
 	end
 
 	--creates callback to hide chat again
-	C_Timer.After(tth, UIHide.stateUpdateFunc(function(chatState)
+	C_Timer.After(tth, UIHide:stateUpdateFunc(function(chatState)
 		if chatState.hideTime and chatState.hideTime <= GetTime() + 0.1 then
-			C_Timer.After(0.25, UIHide.stateUpdateFunc(function(chatState)
+			C_Timer.After(0.25, UIHide:stateUpdateFunc(function(chatState)
 				return {disableManualToggle = false}
 			end, "chat"))
 			return {showIfAuto = false, hideTime = false, disableManualToggle = true}
