@@ -224,14 +224,16 @@ local DISPLAY_FUNCS = {
 		if mapClusterState.map.isManual or mapClusterState.map.showIfAuto then
 			MinimapCluster:Show()
 			Minimap:Show()
-            if MawBuffsBelowMinimapFrame and MawBuffsBelowMinimapFrame.Container then
+            if MawBuffsBelowMinimapFrame and MawBuffsBelowMinimapFrame.isHidden then
                 MawBuffsBelowMinimapFrame:Show()
+                MawBuffsBelowMinimapFrame.isHidden = nil
             end
 		else
 			MinimapCluster:Hide()
 			Minimap:Hide()
-            if MawBuffsBelowMinimapFrame and MawBuffsBelowMinimapFrame.Container then
+            if MawBuffsBelowMinimapFrame and MawBuffsBelowMinimapFrame:IsShown() then
                 MawBuffsBelowMinimapFrame:Hide()
+                MawBuffsBelowMinimapFrame.isHidden = true
             end
 		end
 		
