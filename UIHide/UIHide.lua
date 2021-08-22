@@ -225,8 +225,12 @@ local DISPLAY_FUNCS = {
 			MinimapCluster:Show()
 			Minimap:Show()
             if MawBuffsBelowMinimapFrame and MawBuffsBelowMinimapFrame.isHidden then
-                MawBuffsBelowMinimapFrame:Show()
-                MawBuffsBelowMinimapFrame.isHidden = nil
+                if UnitAura("player", 1, "MAW") then
+                    MawBuffsBelowMinimapFrame:Show()
+                    MawBuffsBelowMinimapFrame.isHidden = nil
+                else
+                    MawBuffsBelowMinimapFrame.isHidden = nil
+                end
             end
 		else
 			MinimapCluster:Hide()
@@ -240,8 +244,10 @@ local DISPLAY_FUNCS = {
 		if mapClusterState.buffs.isManual or mapClusterState.buffs.showIfAuto then
 			BuffFrame:Show()
 			BuffFrame:SetPoint("TOPRIGHT", unpack(BUFF_FRAME_POS[MinimapCluster:IsShown() and "default" or "corner"]))
+            TemporaryEnchantFrame:Show()
 		else
 			BuffFrame:Hide()
+            TemporaryEnchantFrame:Hide()
 		end
 
 		if mapClusterState.quests.isManual or mapClusterState.quests.showIfAuto then
