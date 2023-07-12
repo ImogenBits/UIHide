@@ -74,8 +74,10 @@ end
 
 --Events when the mapCluster state will be updated
 local MAP_CLUSTER_STATE_EVENTS = {
-	["PLAYER_ENTERING_WORLD"] = true,
-	["QUEST_WATCH_LIST_CHANGED"] = true
+	PLAYER_ENTERING_WORLD = true,
+	QUEST_WATCH_LIST_CHANGED = true,
+    CONTENT_TRACKING_LIST_UPDATE = true,
+    CONTENT_TRACKING_UPDATE = true,
 }
 
 --Deftault state info
@@ -388,7 +390,7 @@ local function mapClusterEventHandler(mapClusterState, self, event, ...)
 		newStateName = "dungeon"
 	elseif C_QuestLog.GetNumQuestWatches() > 0
 		or C_QuestLog.GetNumWorldQuestWatches() > 0
-		or next(C_ContentTracking.GetTrackedIDs(Enum.COntentTrackingType.Achievement)) ~= nil
+		or next(C_ContentTracking.GetTrackedIDs(Enum.ContentTrackingType.Achievement)) ~= nil
 		or (WorldQuestTrackerQuestsHeader and WorldQuestTrackerQuestsHeader:IsShown()) then
 		newStateName = "questing"
 	else
