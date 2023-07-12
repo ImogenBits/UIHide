@@ -244,10 +244,8 @@ local DISPLAY_FUNCS = {
 		if mapClusterState.buffs.isManual or mapClusterState.buffs.showIfAuto then
 			BuffFrame:Show()
 			BuffFrame:SetPoint("TOPRIGHT", unpack(BUFF_FRAME_POS[MinimapCluster:IsShown() and "default" or "corner"]))
-            TemporaryEnchantFrame:Show()
 		else
 			BuffFrame:Hide()
-            TemporaryEnchantFrame:Hide()
 		end
 
 		if mapClusterState.quests.isManual or mapClusterState.quests.showIfAuto then
@@ -390,7 +388,7 @@ local function mapClusterEventHandler(mapClusterState, self, event, ...)
 		newStateName = "dungeon"
 	elseif C_QuestLog.GetNumQuestWatches() > 0
 		or C_QuestLog.GetNumWorldQuestWatches() > 0
-		or GetNumTrackedAchievements() > 0
+		or next(C_ContentTracking.GetTrackedIDs(Enum.COntentTrackingType.Achievement)) ~= nil
 		or (WorldQuestTrackerQuestsHeader and WorldQuestTrackerQuestsHeader:IsShown()) then
 		newStateName = "questing"
 	else
@@ -528,7 +526,7 @@ do
 end
 
 --* Moves dungeon progress frame out of the way of debuffs
-do
+--[[do
 	EVENT_FRAME:RegisterEvent("UNIT_AURA")
 	EVENT_FRAME:HookScript("OnEvent", function(self, event, ...)
 		if event == "UNIT_AURA" then
@@ -538,10 +536,10 @@ do
 			end
 		end
 	end)
-end
+end]]
 
 --* Opens the Talent pane when you open the spec frame
-do
+--[[do
 	EVENT_FRAME:RegisterEvent("ADDON_LOADED")
 	EVENT_FRAME:HookScript("OnEvent", function(self, event, ...)
 		if event == "ADDON_LOADED" and ... == "Blizzard_TalentUI" then
@@ -550,7 +548,7 @@ do
 			end)
 		end
 	end)
-end
+end]]
 
 --* /dump shows chat
 do
@@ -559,3 +557,6 @@ do
 		return chatEventHandler(chatState, Editbox, "CUSTOM_CHAT_MSG_DUMP", "")
 	end, "chat"))
 end
+
+QuickJoinToastButton:Hide()
+
